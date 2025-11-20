@@ -13,6 +13,8 @@ Monte Carlo simulator for Formula 1 race strategies. The tool models tire degrad
 - Driver skill presets (elite or average) that influence lap-time variance
 - Meta-heuristic optimizers (Bayesian search, genetic algorithm, simulated
   annealing) for discovering custom pit strategies
+- Optional ML-based degradation model trained on synthetic data (random forest–
+  style linear reg approximation) that captures lap-age + weather effects
 - Monte Carlo statistics (mean, median, 5th/95th percentiles) with optional
   plotting utilities
 
@@ -47,6 +49,12 @@ python -m src.main --plot --driver-skill average
 Use `--driver-skill` to toggle between `elite` (σ=0.08 s) and `average`
 (σ=0.20 s) driver variance modeling.
 
+Switch to the learned degradation model:
+
+```bash
+python -m src.main --degradation-model ml
+```
+
 ### Optimization Mode
 
 Turn on search-based strategy discovery:
@@ -62,6 +70,8 @@ python -m src.main --optimize annealing --optimization-iterations 120 --min-stin
   runtime.
 - `--with-presets` adds the stock 1/2/3-stop strategies to the final report for
   comparison against the optimizer's result.
+- Combine with `--degradation-model ml` to evaluate strategies using the trained
+  model instead of the analytical curve.
 
 The script runs 5,000 simulations for each preset strategy and prints a summary similar to:
 

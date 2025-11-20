@@ -10,6 +10,7 @@ __all__ = [
     "lap_model",
     "strategy",
     "montecarlo",
+    "ml_model",
     "main",
 ]
 

@@ -8,6 +8,7 @@ import argparse
 from pathlib import Path
 from typing import List, Optional, Tuple
 
+from .lap_model import set_degradation_mode
 from .montecarlo import MonteCarloSimulator, SimulationStats, StrategyResult
 from .optimization import (
     OptimizationConfig,
@@ -78,6 +79,12 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="When optimizing, also evaluate the preset strategies for comparison.",
     )
+    parser.add_argument(
+        "--degradation-model",
+        choices=["analytical", "ml"],
+        default="analytical",
+        help="Choose between the closed-form or ML-based degradation estimates.",
+    )
     return parser.parse_args()
 
 
@@ -116,6 +123,7 @@ def load_strategies(
 
 def run() -> None:
     args = parse_args()
+    set_degradation_mode(args.degradation_model)
     driver_sigma = DRIVER_SKILL_SIGMA[args.driver_skill]
     strategies, optimization = load_strategies(args, driver_sigma)
     simulator = MonteCarloSimulator(race_laps=RACE_LAPS, runs=RUNS, driver_sigma=driver_sigma)

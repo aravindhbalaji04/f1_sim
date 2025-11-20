@@ -9,6 +9,7 @@ import random
 from typing import Dict, Optional
 
 from .degradation import get_degradation
+from .ml_model import predict_degradation as predict_learned_degradation
 
 BASE_LAP_TIMES: Dict[str, float] = {
     "soft": 88.5,
@@ -36,6 +37,26 @@ OVERHEAT_FACTOR = 0.01
 
 DRS_BONUS = 0.2
 ERS_BONUS = 0.25
+
+DEGRADATION_MODE = "analytical"
+VALID_DEGRADATION_MODES = ("analytical", "ml")
+def set_degradation_mode(mode: str) -> None:
+    """
+    Switch between analytical and machine-learned degradation estimators.
+    """
+    normalized = mode.strip().lower()
+    if normalized not in VALID_DEGRADATION_MODES:
+        raise ValueError(f"Invalid degradation mode '{mode}'.")
+    global DEGRADATION_MODE
+    DEGRADATION_MODE = normalized
+
+
+def _compute_tire_degradation(
+    compound: str, lap_age: float, track_temp: float, weather_penalty: float
+) -> float:
+    if DEGRADATION_MODE == "ml":
+        return predict_learned_degradation(compound, lap_age, track_temp, weather_penalty)
+    return get_degradation(compound, lap_age)
 
 
 def estimate_tire_temp(compound: str, lap_age: float, track_temp: float) -> float:
@@ -92,7 +113,7 @@ def simulate_lap(
 
     base_time = BASE_LAP_TIMES[key]
     fuel_penalty = FUEL_COEFFICIENT * max(fuel_laps, 0)
-    tire_deg = get_degradation(key, lap_age)
+    tire_deg = _compute_tire_degradation(key, lap_age, track_temp, weather_penalty)
     temp_penalty = temperature_penalty(key, lap_age, track_temp)
     track_evolution = TRACK_IMPROVEMENT_RATE * lap_number
     opponent_age = opponent_lap_age if opponent_lap_age is not None else lap_age
@@ -129,5 +150,6 @@ __all__ = [
     "VARIANCE",
     "PIT_STOP_LOSS",
     "TRACK_IMPROVEMENT_RATE",
+    "set_degradation_mode",
 ]
 
