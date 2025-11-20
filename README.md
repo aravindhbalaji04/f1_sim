@@ -4,13 +4,15 @@ Monte Carlo simulator for Formula 1 race strategies. The tool models tire degrad
 
 ## Features
 
-- Polynomial tire degradation tuned per compound
-- Lap-time model that blends base pace, fuel effect, opponent-based undercut,
-  and randomness
+- Polynomial tire degradation tuned per compound with thermal sensitivity
+- Lap-time model combining base pace, fuel, tire temps, track evolution,
+  opponent-based undercut, and stochastic effects
 - Built-in 1-stop, 2-stop, and 3-stop strategy templates
+- Weather system (sunny/cloudy/rain), safety-car odds, pit-stop timing jitter,
+  plus DRS/ERS deployment modeling
+- Driver skill presets (elite or average) that influence lap-time variance
 - Monte Carlo statistics (mean, median, 5th/95th percentiles) with optional
   plotting utilities
-- Safety-car events and pit-stop timing jitter for added realism
 
 ## Project Structure
 
@@ -37,8 +39,11 @@ python -m src.main
 Add `--plot` to generate distribution and boxplot images (requires matplotlib, already listed in `pyproject.toml`):
 
 ```bash
-python -m src.main --plot
+python -m src.main --plot --driver-skill average
 ```
+
+Use `--driver-skill` to toggle between `elite` (σ=0.08 s) and `average`
+(σ=0.20 s) driver variance modeling.
 
 The script runs 5,000 simulations for each preset strategy and prints a summary similar to:
 
@@ -55,11 +60,12 @@ Best strategy based on mean race time:
 
 ## Configuration
 
-- Adjust `RACE_LAPS` or `RUNS` in `src/main.py` to explore different events or sampling levels.
+- Adjust `RACE_LAPS`, `RUNS`, or driver presets in `src/main.py`.
 - Modify `get_preset_strategies` in `src/strategy.py` to test custom stint lengths.
-- Tweak the degradation coefficients in `src/degradation.py`, fuel/pit/undercut
-  parameters in `src/lap_model.py`, or safety-car odds in `src/montecarlo.py`
-  to match specific circuits or eras.
+- Tune degradation coefficients, temperature heuristics, or track evolution in
+  `src/degradation.py` / `src/lap_model.py`.
+- Update weather probabilities, safety-car odds, and DRS/ERS settings inside
+  `src/montecarlo.py` to match specific circuits or seasons.
 
 ## License
 

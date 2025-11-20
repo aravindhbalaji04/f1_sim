@@ -14,6 +14,10 @@ from .strategy import Strategy, get_preset_strategies
 
 RACE_LAPS = 58
 RUNS = 5000
+DRIVER_SKILL_SIGMA = {
+    "elite": 0.08,
+    "average": 0.20,
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -27,6 +31,12 @@ def parse_args() -> argparse.Namespace:
         "--plot-dir",
         default="plots",
         help="Destination directory for generated plots (default: plots/).",
+    )
+    parser.add_argument(
+        "--driver-skill",
+        choices=sorted(DRIVER_SKILL_SIGMA),
+        default="elite",
+        help="Driver skill preset affecting variance (elite=0.08s, average=0.20s).",
     )
     return parser.parse_args()
 
@@ -45,10 +55,18 @@ def format_stats(result: StrategyResult) -> str:
 def run() -> None:
     args = parse_args()
     strategies = get_preset_strategies(RACE_LAPS)
-    simulator = MonteCarloSimulator(race_laps=RACE_LAPS, runs=RUNS)
+    driver_sigma = DRIVER_SKILL_SIGMA[args.driver_skill]
+    simulator = MonteCarloSimulator(
+        race_laps=RACE_LAPS,
+        runs=RUNS,
+        driver_sigma=driver_sigma,
+    )
 
     results: List[StrategyResult] = []
-    print(f"Running {RUNS} simulations per strategy over {RACE_LAPS} laps...\n")
+    print(
+        f"Running {RUNS} simulations per strategy over {RACE_LAPS} laps "
+        f"(driver: {args.driver_skill}, σ={driver_sigma:.2f})...\n"
+    )
     for strategy in strategies:
         result = simulator.run_strategy(strategy)
         results.append(result)
