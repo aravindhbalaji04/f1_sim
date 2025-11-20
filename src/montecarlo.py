@@ -97,6 +97,37 @@ class UncertaintyBounds:
 
 
 @dataclass(frozen=True)
+class SampledUncertainty:
+    pit_stop_loss: float
+    degradation_scale: float
+    safety_car_probability: float
+
+
+@dataclass(frozen=True)
+class UncertaintyBounds:
+    pit_stop_range: Tuple[float, float] = (20.0, 22.0)
+    degradation_scale_range: Tuple[float, float] = (0.9, 1.1)
+    safety_car_probability_range: Tuple[float, float] = (0.08, 0.18)
+
+    def __post_init__(self) -> None:
+        _validate_range(self.pit_stop_range, "pit_stop_range", positive=True)
+        _validate_range(self.degradation_scale_range, "degradation_scale_range", positive=True)
+        _validate_range(
+            self.safety_car_probability_range,
+            "safety_car_probability_range",
+            lower_bound=0.0,
+            upper_bound=1.0,
+        )
+
+    def sample(self) -> SampledUncertainty:
+        return SampledUncertainty(
+            pit_stop_loss=random.uniform(*self.pit_stop_range),
+            degradation_scale=random.uniform(*self.degradation_scale_range),
+            safety_car_probability=random.uniform(*self.safety_car_probability_range),
+        )
+
+
+@dataclass(frozen=True)
 class SimulationStats:
     """Aggregate statistics for Monte Carlo runs."""
 
@@ -125,6 +156,7 @@ class MonteCarloSimulator:
         runs: int = 5000,
         driver_sigma: float = 0.08,
         uncertainty: Optional[UncertaintyBounds] = None,
+        forced_weather: Optional[WeatherState] = None,
     ) -> None:
         if race_laps <= 0:
             raise ValueError("race_laps must be positive.")
@@ -136,6 +168,7 @@ class MonteCarloSimulator:
         self.runs = runs
         self.driver_sigma = driver_sigma
         self.uncertainty = uncertainty
+        self.forced_weather = forced_weather
 
     def run_strategy(self, strategy: Strategy) -> StrategyResult:
         """Simulate a single strategy multiple times and summarize the result."""
@@ -163,14 +196,12 @@ class MonteCarloSimulator:
         opponent_lap_in_stint = 0
 
         sampled_uncertainty = self.uncertainty.sample() if self.uncertainty else None
-        pit_stop_loss = sampled_uncertainty.pit_stop_loss if sampled_uncertainty else PIT_STOP_LOSS
-        degradation_scale = sampled_uncertainty.degradation_scale if sampled_uncertainty else 1.0
-        safety_car_probability = (
-            sampled_uncertainty.safety_car_probability if sampled_uncertainty else SAFETY_CAR_PROBABILITY
+        pit_stop_loss, degradation_scale, safety_car_probability = self._resolve_uncertainty(
+            sampled_uncertainty
         )
 
         safety_car_window = self._maybe_trigger_safety_car(safety_car_probability)
-        weather = self._choose_weather_state()
+        weather = self.forced_weather or self._choose_weather_state()
         ers_remaining = ERS_TOTAL_DEPLOYMENTS
 
         total_time = 0.0
@@ -222,6 +253,71 @@ class MonteCarloSimulator:
 
         return total_time
 
+    def simulate_lap_sequence(self, strategy: Strategy) -> List[float]:
+        """Simulate a single race and return lap times for visualization."""
+        opponent_schedule = self._generate_opponent_schedule(strategy)
+        opponent_stint = 0
+        opponent_lap_in_stint = 0
+
+        sampled_uncertainty = self.uncertainty.sample() if self.uncertainty else None
+        pit_stop_loss, degradation_scale, safety_car_probability = self._resolve_uncertainty(
+            sampled_uncertainty
+        )
+
+        safety_car_window = self._maybe_trigger_safety_car(safety_car_probability)
+        weather = self.forced_weather or self._choose_weather_state()
+        ers_remaining = ERS_TOTAL_DEPLOYMENTS
+
+        lap_times: List[float] = []
+        completed_laps = 0
+        for stint_index, stint in enumerate(strategy.stints):
+            pit_penalty = pit_stop_loss if stint_index > 0 else 0.0
+            for lap_in_stint in range(stint.length):
+                completed_laps += 1
+                fuel_laps = self.race_laps - completed_laps
+
+                opponent_age = opponent_lap_in_stint
+                drs_active = self._roll_probability(DRS_PROBABILITY)
+                ers_active = False
+                if ers_remaining > 0 and self._roll_probability(ERS_PROBABILITY):
+                    ers_active = True
+                    ers_remaining -= 1
+
+                lap_time = simulate_lap(
+                    compound=stint.compound,
+                    lap_age=lap_in_stint,
+                    fuel_laps=fuel_laps,
+                    opponent_lap_age=opponent_age,
+                    lap_number=completed_laps,
+                    track_temp=weather.track_temp,
+                    weather_penalty=weather.lap_penalty,
+                    drs_active=drs_active,
+                    ers_active=ers_active,
+                    driver_sigma=self.driver_sigma,
+                    weather_variance_scale=weather.variance_scale,
+                    degradation_scale=degradation_scale,
+                )
+                if pit_penalty != 0.0:
+                    lap_time += pit_penalty
+                    pit_penalty = 0.0
+
+                if safety_car_window:
+                    start, end = safety_car_window
+                    if start <= completed_laps <= end:
+                        lap_time *= SAFETY_CAR_LAP_MULTIPLIER
+
+                lap_times.append(lap_time)
+
+                opponent_lap_in_stint += 1
+                if (
+                    opponent_stint < len(opponent_schedule)
+                    and opponent_lap_in_stint >= opponent_schedule[opponent_stint]
+                ):
+                    opponent_stint += 1
+                    opponent_lap_in_stint = 0
+
+        return lap_times
+
     def _validate_strategy(self, strategy: Strategy) -> None:
         total = strategy.total_laps()
         if total != self.race_laps:
@@ -267,6 +363,17 @@ class MonteCarloSimulator:
             if roll <= cumulative:
                 return state
         return WEATHER_SCENARIOS[-1][1]
+
+    def _resolve_uncertainty(
+        self, sampled: Optional[SampledUncertainty]
+    ) -> Tuple[float, float, float]:
+        if sampled:
+            return (
+                sampled.pit_stop_loss,
+                sampled.degradation_scale,
+                sampled.safety_car_probability,
+            )
+        return (PIT_STOP_LOSS, 1.0, SAFETY_CAR_PROBABILITY)
 
     @staticmethod
     def _roll_probability(probability: float) -> bool:
@@ -317,5 +424,6 @@ __all__ = [
     "SimulationStats",
     "StrategyResult",
     "UncertaintyBounds",
+    "WeatherState",
 ]
 

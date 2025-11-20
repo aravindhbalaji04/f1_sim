@@ -90,6 +90,21 @@ python -m src.main --optimize annealing --optimization-iterations 120 --min-stin
 - Combine with the uncertainty flags to search for strategies that remain strong
   under parameter variation.
 
+### Interactive Dashboard
+
+Launch the Streamlit dashboard for a fully interactive experience:
+
+```bash
+streamlit run streamlit_app.py
+```
+
+Capabilities:
+
+- Select which strategies to compare and adjust Monte Carlo runs
+- Configure weather type, track temperature, driver skill, and uncertainty ranges
+- Visualize lap time trajectories and stint compositions
+- Inspect win probabilities derived from Monte Carlo samples
+
 The script runs 5,000 simulations for each preset strategy and prints a summary similar to:
 
 ```
