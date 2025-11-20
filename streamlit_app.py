@@ -16,17 +16,20 @@ import streamlit as st
 
 # Ensure the src package is importable when launching via Streamlit
 ROOT = Path(__file__).resolve().parent
-if str(ROOT) not in sys.path:
-    sys.path.append(str(ROOT))
+SRC_PATH = ROOT / "src"
+for path in (ROOT, SRC_PATH):
+    str_path = str(path)
+    if str_path not in sys.path:
+        sys.path.append(str_path)
 
-from src.lap_model import set_degradation_mode
-from src.montecarlo import (
+from f1_sim.lap_model import set_degradation_mode
+from f1_sim.montecarlo import (
     MonteCarloSimulator,
     StrategyResult,
     UncertaintyBounds,
     WeatherState,
 )
-from src.strategy import Strategy, get_preset_strategies
+from f1_sim.strategy import Strategy, get_preset_strategies
 
 RACE_LAPS = 58
 DRIVER_SKILLS = {

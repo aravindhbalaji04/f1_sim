@@ -39,13 +39,14 @@ f1_sim/
 
 ```bash
 cd f1_sim
-python -m src.main
+py -m pip install -e .
+python -m f1_sim.main
 ```
 
 Add `--plot` to generate distribution and boxplot images (requires matplotlib, already listed in `pyproject.toml`):
 
 ```bash
-python -m src.main --plot --driver-skill average
+python -m f1_sim.main --plot --driver-skill average
 ```
 
 Use `--driver-skill` to toggle between `elite` (σ=0.08 s) and `average`
@@ -54,13 +55,13 @@ Use `--driver-skill` to toggle between `elite` (σ=0.08 s) and `average`
 Switch to the learned degradation model:
 
 ```bash
-python -m src.main --degradation-model ml
+python -m f1_sim.main --degradation-model ml
 ```
 
 ### Parameter Uncertainty & Confidence Bands
 
 ```bash
-python -m src.main \
+python -m f1_sim.main \
   --pit-stop-range 20.5 22.3 \
   --deg-scale-range 0.85 1.12 \
   --safety-car-prob-range 0.05 0.18
@@ -75,9 +76,9 @@ resulting 5th–95th percentile confidence bands for total race times.
 Turn on search-based strategy discovery:
 
 ```bash
-python -m src.main --optimize bayesian --optimization-iterations 80 --with-presets
-python -m src.main --optimize genetic --optimization-iterations 60 --max-stops 3
-python -m src.main --optimize annealing --optimization-iterations 120 --min-stint 10
+python -m f1_sim.main --optimize bayesian --optimization-iterations 80 --with-presets
+python -m f1_sim.main --optimize genetic --optimization-iterations 60 --max-stops 3
+python -m f1_sim.main --optimize annealing --optimization-iterations 120 --min-stint 10
 ```
 
 - `--optimization-eval-runs` controls how many Monte Carlo runs each candidate

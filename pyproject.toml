@@ -19,4 +19,8 @@ dependencies = [
 
 [tool.setuptools.packages.find]
 where = ["src"]
+include = ["f1_sim*"]
+
+[tool.setuptools.package-dir]
+"" = "src"
 

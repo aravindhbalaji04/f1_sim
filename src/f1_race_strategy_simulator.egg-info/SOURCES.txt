@@ -5,3 +5,12 @@ src/f1_race_strategy_simulator.egg-info/SOURCES.txt
 src/f1_race_strategy_simulator.egg-info/dependency_links.txt
 src/f1_race_strategy_simulator.egg-info/requires.txt
 src/f1_race_strategy_simulator.egg-info/top_level.txt
+src/f1_sim/__init__.py
+src/f1_sim/degradation.py
+src/f1_sim/lap_model.py
+src/f1_sim/main.py
+src/f1_sim/ml_model.py
+src/f1_sim/montecarlo.py
+src/f1_sim/optimization.py
+src/f1_sim/plotting.py
+src/f1_sim/strategy.py

@@ -2,7 +2,7 @@
 Strategy simulator package initialization.
 
 Having this file allows running the project as a package via
-``python -m src.main``.
+``python -m f1_sim.main``.
 """
 
 __all__ = [
