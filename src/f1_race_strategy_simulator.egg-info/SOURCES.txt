@@ -1,0 +1,7 @@
+README.md
+pyproject.toml
+src/f1_race_strategy_simulator.egg-info/PKG-INFO
+src/f1_race_strategy_simulator.egg-info/SOURCES.txt
+src/f1_race_strategy_simulator.egg-info/dependency_links.txt
+src/f1_race_strategy_simulator.egg-info/requires.txt
+src/f1_race_strategy_simulator.egg-info/top_level.txt

@@ -12,7 +12,9 @@ keywords = ["formula1", "simulation", "monte-carlo", "strategy"]
 authors = [
   { name = "Aravindh Balaji" }
 ]
-dependencies = []
+dependencies = [
+  "matplotlib>=3.8,<4.0",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]

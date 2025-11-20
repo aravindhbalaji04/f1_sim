@@ -24,6 +24,15 @@ class SimulationStats:
     samples: int
 
 
+@dataclass(frozen=True)
+class StrategyResult:
+    """Encapsulates raw samples and statistics for a strategy."""
+
+    strategy: Strategy
+    samples: List[float]
+    stats: SimulationStats
+
+
 class MonteCarloSimulator:
     """Run multiple race simulations for supplied strategies."""
 
@@ -35,22 +44,25 @@ class MonteCarloSimulator:
         self.race_laps = race_laps
         self.runs = runs
 
-    def run_strategy(self, strategy: Strategy) -> SimulationStats:
+    def run_strategy(self, strategy: Strategy) -> StrategyResult:
         """Simulate a single strategy multiple times and summarize the result."""
         self._validate_strategy(strategy)
-        samples = [self._simulate_single_race(strategy) for _ in range(self.runs)]
-        samples.sort()
-        return SimulationStats(
+        samples = sorted(self._simulate_runs(strategy))
+        stats = SimulationStats(
             mean=fmean(samples),
             median=median(samples),
             p05=_percentile(samples, 5.0),
             p95=_percentile(samples, 95.0),
             samples=self.runs,
         )
+        return StrategyResult(strategy=strategy, samples=samples, stats=stats)
 
-    def run_all(self, strategies: Sequence[Strategy]) -> Dict[str, SimulationStats]:
+    def run_all(self, strategies: Sequence[Strategy]) -> Dict[str, StrategyResult]:
         """Run simulations for all provided strategies."""
         return {strategy.name: self.run_strategy(strategy) for strategy in strategies}
+
+    def _simulate_runs(self, strategy: Strategy) -> List[float]:
+        return [self._simulate_single_race(strategy) for _ in range(self.runs)]
 
     def _simulate_single_race(self, strategy: Strategy) -> float:
         total_time = 0.0
@@ -92,5 +104,5 @@ def _percentile(data: List[float], percentile: float) -> float:
     return data[lower] + fraction * (data[upper] - data[lower])
 
 
-__all__ = ["MonteCarloSimulator", "SimulationStats"]
+__all__ = ["MonteCarloSimulator", "SimulationStats", "StrategyResult"]
 

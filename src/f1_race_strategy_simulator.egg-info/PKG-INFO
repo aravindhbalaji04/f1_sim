@@ -1,3 +1,13 @@
+Metadata-Version: 2.4
+Name: f1-race-strategy-simulator
+Version: 0.1.0
+Summary: Monte Carlo simulator for Formula 1 strategy analysis.
+Author: Aravindh Balaji
+Keywords: formula1,simulation,monte-carlo,strategy
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: matplotlib<4.0,>=3.8
+
 # F1 Race Strategy Simulator
 
 Monte Carlo simulator for Formula 1 race strategies. The tool models tire degradation, fuel load effects, and stochastic lap-time noise to compare multi-stint race plans.
