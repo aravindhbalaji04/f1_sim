@@ -6,9 +6,14 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
-from typing import List
+from typing import List, Optional, Tuple
 
 from .montecarlo import MonteCarloSimulator, SimulationStats, StrategyResult
+from .optimization import (
+    OptimizationConfig,
+    OptimizationResult,
+    build_optimizer,
+)
 from .plotting import generate_all_plots
 from .strategy import Strategy, get_preset_strategies
 
@@ -38,6 +43,41 @@ def parse_args() -> argparse.Namespace:
         default="elite",
         help="Driver skill preset affecting variance (elite=0.08s, average=0.20s).",
     )
+    parser.add_argument(
+        "--optimize",
+        choices=["none", "bayesian", "genetic", "annealing"],
+        default="none",
+        help="Search for an optimal strategy using the selected meta-heuristic.",
+    )
+    parser.add_argument(
+        "--optimization-iterations",
+        type=int,
+        default=60,
+        help="Iterations/evaluations for the chosen optimizer.",
+    )
+    parser.add_argument(
+        "--optimization-eval-runs",
+        type=int,
+        default=600,
+        help="Monte Carlo runs per optimization evaluation (lower = faster).",
+    )
+    parser.add_argument(
+        "--max-stops",
+        type=int,
+        default=3,
+        help="Maximum number of pit stops the optimizer may schedule.",
+    )
+    parser.add_argument(
+        "--min-stint",
+        type=int,
+        default=8,
+        help="Minimum stint length enforced during optimization.",
+    )
+    parser.add_argument(
+        "--with-presets",
+        action="store_true",
+        help="When optimizing, also evaluate the preset strategies for comparison.",
+    )
     return parser.parse_args()
 
 
@@ -52,15 +92,33 @@ def format_stats(result: StrategyResult) -> str:
     )
 
 
-def run() -> None:
-    args = parse_args()
-    strategies = get_preset_strategies(RACE_LAPS)
-    driver_sigma = DRIVER_SKILL_SIGMA[args.driver_skill]
-    simulator = MonteCarloSimulator(
+def load_strategies(
+    args: argparse.Namespace, driver_sigma: float
+) -> Tuple[List[Strategy], Optional[OptimizationResult]]:
+    if args.optimize == "none":
+        return get_preset_strategies(RACE_LAPS), None
+
+    config = OptimizationConfig(
         race_laps=RACE_LAPS,
-        runs=RUNS,
+        max_stops=args.max_stops,
+        min_stint_laps=args.min_stint,
+        evaluation_runs=args.optimization_eval_runs,
         driver_sigma=driver_sigma,
     )
+    optimizer = build_optimizer(args.optimize, config)
+    optimization_result = optimizer.optimize(iterations=args.optimization_iterations)
+
+    strategies = [optimization_result.strategy]
+    if args.with_presets:
+        strategies.extend(get_preset_strategies(RACE_LAPS))
+    return strategies, optimization_result
+
+
+def run() -> None:
+    args = parse_args()
+    driver_sigma = DRIVER_SKILL_SIGMA[args.driver_skill]
+    strategies, optimization = load_strategies(args, driver_sigma)
+    simulator = MonteCarloSimulator(race_laps=RACE_LAPS, runs=RUNS, driver_sigma=driver_sigma)
 
     results: List[StrategyResult] = []
     print(
@@ -78,6 +136,12 @@ def run() -> None:
     print("\nBest strategy based on mean race time:")
     print(f"- {best_strategy.name} ({best_stats.mean:.3f}s average)")
 
+    if optimization:
+        print(
+            f"\nOptimizer summary: {optimization.algorithm} best estimate "
+            f"{optimization.score:.3f}s after {len(optimization.history)} evaluations."
+        )
+
     if args.plot:
         samples = {result.strategy.name: result.samples for result in results}
         output_paths = generate_all_plots(samples, output_dir=args.plot_dir)
@@ -88,4 +152,3 @@ def run() -> None:
 
 if __name__ == "__main__":
     run()
-

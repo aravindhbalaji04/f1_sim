@@ -11,6 +11,8 @@ Monte Carlo simulator for Formula 1 race strategies. The tool models tire degrad
 - Weather system (sunny/cloudy/rain), safety-car odds, pit-stop timing jitter,
   plus DRS/ERS deployment modeling
 - Driver skill presets (elite or average) that influence lap-time variance
+- Meta-heuristic optimizers (Bayesian search, genetic algorithm, simulated
+  annealing) for discovering custom pit strategies
 - Monte Carlo statistics (mean, median, 5th/95th percentiles) with optional
   plotting utilities
 
@@ -44,6 +46,22 @@ python -m src.main --plot --driver-skill average
 
 Use `--driver-skill` to toggle between `elite` (σ=0.08 s) and `average`
 (σ=0.20 s) driver variance modeling.
+
+### Optimization Mode
+
+Turn on search-based strategy discovery:
+
+```bash
+python -m src.main --optimize bayesian --optimization-iterations 80 --with-presets
+python -m src.main --optimize genetic --optimization-iterations 60 --max-stops 3
+python -m src.main --optimize annealing --optimization-iterations 120 --min-stint 10
+```
+
+- `--optimization-eval-runs` controls how many Monte Carlo runs each candidate
+  evaluation uses (default 600). Higher values improve accuracy at the cost of
+  runtime.
+- `--with-presets` adds the stock 1/2/3-stop strategies to the final report for
+  comparison against the optimizer's result.
 
 The script runs 5,000 simulations for each preset strategy and prints a summary similar to:
 
