@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "f1-race-strategy-simulator"
+version = "0.1.0"
+description = "Monte Carlo simulator for Formula 1 strategy analysis."
+readme = "README.md"
+requires-python = ">=3.10"
+keywords = ["formula1", "simulation", "monte-carlo", "strategy"]
+authors = [
+  { name = "Aravindh Balaji" }
+]
+dependencies = []
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
