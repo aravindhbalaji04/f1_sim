@@ -86,6 +86,7 @@ def simulate_lap(
     ers_active: bool = False,
     driver_sigma: float = 0.08,
     weather_variance_scale: float = 1.0,
+    degradation_scale: float = 1.0,
 ) -> float:
     """
     Simulate the lap time for the given compound and conditions.
@@ -113,7 +114,9 @@ def simulate_lap(
 
     base_time = BASE_LAP_TIMES[key]
     fuel_penalty = FUEL_COEFFICIENT * max(fuel_laps, 0)
-    tire_deg = _compute_tire_degradation(key, lap_age, track_temp, weather_penalty)
+    tire_deg = (
+        _compute_tire_degradation(key, lap_age, track_temp, weather_penalty) * degradation_scale
+    )
     temp_penalty = temperature_penalty(key, lap_age, track_temp)
     track_evolution = TRACK_IMPROVEMENT_RATE * lap_number
     opponent_age = opponent_lap_age if opponent_lap_age is not None else lap_age

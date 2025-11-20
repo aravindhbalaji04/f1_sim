@@ -9,7 +9,12 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 from .lap_model import set_degradation_mode
-from .montecarlo import MonteCarloSimulator, SimulationStats, StrategyResult
+from .montecarlo import (
+    MonteCarloSimulator,
+    SimulationStats,
+    StrategyResult,
+    UncertaintyBounds,
+)
 from .optimization import (
     OptimizationConfig,
     OptimizationResult,
@@ -85,6 +90,30 @@ def parse_args() -> argparse.Namespace:
         default="analytical",
         help="Choose between the closed-form or ML-based degradation estimates.",
     )
+    parser.add_argument(
+        "--pit-stop-range",
+        nargs=2,
+        type=float,
+        metavar=("MIN", "MAX"),
+        default=(20.0, 22.0),
+        help="Uncertainty bounds (seconds) for pit-stop loss.",
+    )
+    parser.add_argument(
+        "--deg-scale-range",
+        nargs=2,
+        type=float,
+        metavar=("MIN", "MAX"),
+        default=(0.9, 1.1),
+        help="Multiplier bounds applied to tire degradation each race.",
+    )
+    parser.add_argument(
+        "--safety-car-prob-range",
+        nargs=2,
+        type=float,
+        metavar=("MIN", "MAX"),
+        default=(0.08, 0.18),
+        help="Bounds for per-race safety-car probability.",
+    )
     return parser.parse_args()
 
 
@@ -100,7 +129,9 @@ def format_stats(result: StrategyResult) -> str:
 
 
 def load_strategies(
-    args: argparse.Namespace, driver_sigma: float
+    args: argparse.Namespace,
+    driver_sigma: float,
+    uncertainty: UncertaintyBounds,
 ) -> Tuple[List[Strategy], Optional[OptimizationResult]]:
     if args.optimize == "none":
         return get_preset_strategies(RACE_LAPS), None
@@ -111,6 +142,7 @@ def load_strategies(
         min_stint_laps=args.min_stint,
         evaluation_runs=args.optimization_eval_runs,
         driver_sigma=driver_sigma,
+        uncertainty=uncertainty,
     )
     optimizer = build_optimizer(args.optimize, config)
     optimization_result = optimizer.optimize(iterations=args.optimization_iterations)
@@ -125,8 +157,18 @@ def run() -> None:
     args = parse_args()
     set_degradation_mode(args.degradation_model)
     driver_sigma = DRIVER_SKILL_SIGMA[args.driver_skill]
-    strategies, optimization = load_strategies(args, driver_sigma)
-    simulator = MonteCarloSimulator(race_laps=RACE_LAPS, runs=RUNS, driver_sigma=driver_sigma)
+    uncertainty = UncertaintyBounds(
+        pit_stop_range=_ordered_tuple(tuple(args.pit_stop_range)),
+        degradation_scale_range=_ordered_tuple(tuple(args.deg_scale_range)),
+        safety_car_probability_range=_ordered_tuple(tuple(args.safety_car_prob_range)),
+    )
+    strategies, optimization = load_strategies(args, driver_sigma, uncertainty)
+    simulator = MonteCarloSimulator(
+        race_laps=RACE_LAPS,
+        runs=RUNS,
+        driver_sigma=driver_sigma,
+        uncertainty=uncertainty,
+    )
 
     results: List[StrategyResult] = []
     print(
@@ -144,6 +186,11 @@ def run() -> None:
     print("\nBest strategy based on mean race time:")
     print(f"- {best_strategy.name} ({best_stats.mean:.3f}s average)")
 
+    print("\nConfidence bands (5th–95th percentile):")
+    for result in results:
+        stats = result.stats
+        print(f"- {result.strategy.name}: {stats.p05:.3f}s – {stats.p95:.3f}s")
+
     if optimization:
         print(
             f"\nOptimizer summary: {optimization.algorithm} best estimate "
@@ -156,6 +203,11 @@ def run() -> None:
         print("\nPlots saved to:")
         for path in output_paths:
             print(f"- {Path(path).resolve()}")
+
+
+def _ordered_tuple(values: Tuple[float, float]) -> Tuple[float, float]:
+    a, b = values
+    return (a, b) if a <= b else (b, a)
 
 
 if __name__ == "__main__":

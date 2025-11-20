@@ -8,7 +8,7 @@ import math
 import random
 from dataclasses import dataclass
 from statistics import fmean, median
-from typing import Dict, List, Sequence
+from typing import Dict, List, Optional, Sequence, Tuple
 
 from .lap_model import PIT_STOP_LOSS, simulate_lap
 from .strategy import Strategy
@@ -66,6 +66,37 @@ WEATHER_SCENARIOS: List[tuple[float, WeatherState]] = [
 
 
 @dataclass(frozen=True)
+class SampledUncertainty:
+    pit_stop_loss: float
+    degradation_scale: float
+    safety_car_probability: float
+
+
+@dataclass(frozen=True)
+class UncertaintyBounds:
+    pit_stop_range: Tuple[float, float] = (20.0, 22.0)
+    degradation_scale_range: Tuple[float, float] = (0.9, 1.1)
+    safety_car_probability_range: Tuple[float, float] = (0.08, 0.18)
+
+    def __post_init__(self) -> None:
+        _validate_range(self.pit_stop_range, "pit_stop_range", positive=True)
+        _validate_range(self.degradation_scale_range, "degradation_scale_range", positive=True)
+        _validate_range(
+            self.safety_car_probability_range,
+            "safety_car_probability_range",
+            lower_bound=0.0,
+            upper_bound=1.0,
+        )
+
+    def sample(self) -> SampledUncertainty:
+        return SampledUncertainty(
+            pit_stop_loss=random.uniform(*self.pit_stop_range),
+            degradation_scale=random.uniform(*self.degradation_scale_range),
+            safety_car_probability=random.uniform(*self.safety_car_probability_range),
+        )
+
+
+@dataclass(frozen=True)
 class SimulationStats:
     """Aggregate statistics for Monte Carlo runs."""
 
@@ -93,6 +124,7 @@ class MonteCarloSimulator:
         race_laps: int,
         runs: int = 5000,
         driver_sigma: float = 0.08,
+        uncertainty: Optional[UncertaintyBounds] = None,
     ) -> None:
         if race_laps <= 0:
             raise ValueError("race_laps must be positive.")
@@ -103,6 +135,7 @@ class MonteCarloSimulator:
         self.race_laps = race_laps
         self.runs = runs
         self.driver_sigma = driver_sigma
+        self.uncertainty = uncertainty
 
     def run_strategy(self, strategy: Strategy) -> StrategyResult:
         """Simulate a single strategy multiple times and summarize the result."""
@@ -129,7 +162,14 @@ class MonteCarloSimulator:
         opponent_stint = 0
         opponent_lap_in_stint = 0
 
-        safety_car_window = self._maybe_trigger_safety_car()
+        sampled_uncertainty = self.uncertainty.sample() if self.uncertainty else None
+        pit_stop_loss = sampled_uncertainty.pit_stop_loss if sampled_uncertainty else PIT_STOP_LOSS
+        degradation_scale = sampled_uncertainty.degradation_scale if sampled_uncertainty else 1.0
+        safety_car_probability = (
+            sampled_uncertainty.safety_car_probability if sampled_uncertainty else SAFETY_CAR_PROBABILITY
+        )
+
+        safety_car_window = self._maybe_trigger_safety_car(safety_car_probability)
         weather = self._choose_weather_state()
         ers_remaining = ERS_TOTAL_DEPLOYMENTS
 
@@ -137,7 +177,7 @@ class MonteCarloSimulator:
         completed_laps = 0
         for stint_index, stint in enumerate(strategy.stints):
             if stint_index > 0:
-                total_time += PIT_STOP_LOSS
+                total_time += pit_stop_loss
 
             for lap_in_stint in range(stint.length):
                 completed_laps += 1
@@ -162,6 +202,7 @@ class MonteCarloSimulator:
                     ers_active=ers_active,
                     driver_sigma=self.driver_sigma,
                     weather_variance_scale=weather.variance_scale,
+                    degradation_scale=degradation_scale,
                 )
 
                 if safety_car_window:
@@ -207,8 +248,8 @@ class MonteCarloSimulator:
             schedule[-1] += remaining
         return schedule
 
-    def _maybe_trigger_safety_car(self) -> tuple[int, int] | None:
-        if random.random() > SAFETY_CAR_PROBABILITY:
+    def _maybe_trigger_safety_car(self, probability: float) -> tuple[int, int] | None:
+        if random.random() > probability:
             return None
         start, end = SAFETY_CAR_LAP_RANGE
         end = min(end, self.race_laps)
@@ -250,5 +291,31 @@ def _percentile(data: List[float], percentile: float) -> float:
     return data[lower] + fraction * (data[upper] - data[lower])
 
 
-__all__ = ["MonteCarloSimulator", "SimulationStats", "StrategyResult"]
+def _validate_range(
+    bounds: Tuple[float, float],
+    label: str,
+    *,
+    positive: bool = False,
+    lower_bound: Optional[float] = None,
+    upper_bound: Optional[float] = None,
+) -> None:
+    if len(bounds) != 2:
+        raise ValueError(f"{label} must contain exactly two values.")
+    lo, hi = bounds
+    if hi < lo:
+        raise ValueError(f"{label} upper bound must be >= lower bound.")
+    if positive and (lo <= 0 or hi <= 0):
+        raise ValueError(f"{label} requires positive bounds.")
+    if lower_bound is not None and lo < lower_bound:
+        raise ValueError(f"{label} lower bound must be >= {lower_bound}.")
+    if upper_bound is not None and hi > upper_bound:
+        raise ValueError(f"{label} upper bound must be <= {upper_bound}.")
+
+
+__all__ = [
+    "MonteCarloSimulator",
+    "SimulationStats",
+    "StrategyResult",
+    "UncertaintyBounds",
+]
 

@@ -9,7 +9,7 @@ import random
 from dataclasses import dataclass, field
 from typing import Dict, List, Sequence, Tuple
 
-from .montecarlo import MonteCarloSimulator
+from .montecarlo import MonteCarloSimulator, UncertaintyBounds
 from .strategy import Strategy, StintPlan, VALID_COMPOUNDS
 
 COMPOUND_INDEX: Dict[str, int] = {compound: idx for idx, compound in enumerate(VALID_COMPOUNDS)}
@@ -47,6 +47,7 @@ class OptimizationConfig:
     min_stint_laps: int = 8
     evaluation_runs: int = 600
     driver_sigma: float = 0.08
+    uncertainty: UncertaintyBounds | None = None
 
     def __post_init__(self) -> None:
         if self.max_stops < 1:
@@ -78,6 +79,7 @@ class StrategyEvaluator:
             race_laps=config.race_laps,
             runs=config.evaluation_runs,
             driver_sigma=config.driver_sigma,
+            uncertainty=config.uncertainty,
         )
 
     def evaluate(self, candidate: StrategyCandidate, label: str) -> EvaluationRecord:

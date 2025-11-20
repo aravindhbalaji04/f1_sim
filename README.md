@@ -15,6 +15,8 @@ Monte Carlo simulator for Formula 1 race strategies. The tool models tire degrad
   annealing) for discovering custom pit strategies
 - Optional ML-based degradation model trained on synthetic data (random forest–
   style linear reg approximation) that captures lap-age + weather effects
+- Parameter uncertainty support for pit-stop loss, degradation scaling, and
+  safety-car probability, producing confidence bands on race outcomes
 - Monte Carlo statistics (mean, median, 5th/95th percentiles) with optional
   plotting utilities
 
@@ -55,6 +57,19 @@ Switch to the learned degradation model:
 python -m src.main --degradation-model ml
 ```
 
+### Parameter Uncertainty & Confidence Bands
+
+```bash
+python -m src.main \
+  --pit-stop-range 20.5 22.3 \
+  --deg-scale-range 0.85 1.12 \
+  --safety-car-prob-range 0.05 0.18
+```
+
+Each simulation samples pit-stop loss, degradation multiplier, and safety-car
+probability within the provided ranges, and the summary table now highlights the
+resulting 5th–95th percentile confidence bands for total race times.
+
 ### Optimization Mode
 
 Turn on search-based strategy discovery:
@@ -72,6 +87,8 @@ python -m src.main --optimize annealing --optimization-iterations 120 --min-stin
   comparison against the optimizer's result.
 - Combine with `--degradation-model ml` to evaluate strategies using the trained
   model instead of the analytical curve.
+- Combine with the uncertainty flags to search for strategies that remain strong
+  under parameter variation.
 
 The script runs 5,000 simulations for each preset strategy and prints a summary similar to:
 
