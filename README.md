@@ -5,9 +5,12 @@ Monte Carlo simulator for Formula 1 race strategies. The tool models tire degrad
 ## Features
 
 - Polynomial tire degradation tuned per compound
-- Lap-time model that blends base pace, fuel effect, and randomness
+- Lap-time model that blends base pace, fuel effect, opponent-based undercut,
+  and randomness
 - Built-in 1-stop, 2-stop, and 3-stop strategy templates
-- Monte Carlo statistics (mean, median, 5th/95th percentiles)
+- Monte Carlo statistics (mean, median, 5th/95th percentiles) with optional
+  plotting utilities
+- Safety-car events and pit-stop timing jitter for added realism
 
 ## Project Structure
 
@@ -54,7 +57,9 @@ Best strategy based on mean race time:
 
 - Adjust `RACE_LAPS` or `RUNS` in `src/main.py` to explore different events or sampling levels.
 - Modify `get_preset_strategies` in `src/strategy.py` to test custom stint lengths.
-- Tweak the degradation coefficients in `src/degradation.py` or base lap times in `src/lap_model.py` to match specific circuits.
+- Tweak the degradation coefficients in `src/degradation.py`, fuel/pit/undercut
+  parameters in `src/lap_model.py`, or safety-car odds in `src/montecarlo.py`
+  to match specific circuits or eras.
 
 ## License
 

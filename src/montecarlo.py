@@ -5,12 +5,17 @@ Monte Carlo race simulation utilities.
 from __future__ import annotations
 
 import math
+import random
 from dataclasses import dataclass
 from statistics import fmean, median
 from typing import Dict, Iterable, List, Sequence
 
-from .lap_model import simulate_lap
+from .lap_model import PIT_STOP_LOSS, simulate_lap
 from .strategy import Strategy
+
+SAFETY_CAR_PROBABILITY = 0.12
+SAFETY_CAR_LAP_RANGE = (20, 40)
+SAFETY_CAR_LAP_MULTIPLIER = 0.65
 
 
 @dataclass(frozen=True)
@@ -65,17 +70,43 @@ class MonteCarloSimulator:
         return [self._simulate_single_race(strategy) for _ in range(self.runs)]
 
     def _simulate_single_race(self, strategy: Strategy) -> float:
+        opponent_schedule = self._generate_opponent_schedule(strategy)
+        opponent_stint = 0
+        opponent_lap_in_stint = 0
+
+        safety_car_lap = self._maybe_trigger_safety_car()
+
         total_time = 0.0
         completed_laps = 0
-        for stint in strategy.stints:
+        for stint_index, stint in enumerate(strategy.stints):
+            if stint_index > 0:
+                total_time += PIT_STOP_LOSS
+
             for lap_in_stint in range(stint.length):
                 completed_laps += 1
                 fuel_laps = self.race_laps - completed_laps
-                total_time += simulate_lap(
+
+                opponent_age = opponent_lap_in_stint
+                lap_time = simulate_lap(
                     compound=stint.compound,
                     lap_age=lap_in_stint,
                     fuel_laps=fuel_laps,
+                    opponent_lap_age=opponent_age,
                 )
+
+                if safety_car_lap and completed_laps == safety_car_lap:
+                    lap_time *= SAFETY_CAR_LAP_MULTIPLIER
+
+                total_time += lap_time
+
+                opponent_lap_in_stint += 1
+                if (
+                    opponent_stint < len(opponent_schedule)
+                    and opponent_lap_in_stint >= opponent_schedule[opponent_stint]
+                ):
+                    opponent_stint += 1
+                    opponent_lap_in_stint = 0
+
         return total_time
 
     def _validate_strategy(self, strategy: Strategy) -> None:
@@ -84,6 +115,34 @@ class MonteCarloSimulator:
             raise ValueError(
                 f"Strategy '{strategy.name}' covers {total} laps but race requires {self.race_laps}."
             )
+
+    def _generate_opponent_schedule(self, strategy: Strategy) -> List[int]:
+        """Create a plausible competitor pit plan by jittering stint lengths."""
+        remaining = self.race_laps
+        schedule: List[int] = []
+        for idx, stint in enumerate(strategy.stints):
+            stints_left = len(strategy.stints) - idx - 1
+            min_required = stints_left
+            if idx == len(strategy.stints) - 1:
+                length = remaining
+            else:
+                jitter = random.randint(-3, 3)
+                desired = stint.length + jitter
+                length = max(1, min(remaining - min_required, desired))
+            schedule.append(length)
+            remaining -= length
+        if schedule:
+            schedule[-1] += remaining
+        return schedule
+
+    def _maybe_trigger_safety_car(self) -> int | None:
+        if random.random() > SAFETY_CAR_PROBABILITY:
+            return None
+        start, end = SAFETY_CAR_LAP_RANGE
+        end = min(end, self.race_laps)
+        if start > end:
+            return None
+        return random.randint(start, end)
 
 
 def _percentile(data: List[float], percentile: float) -> float:

@@ -17,23 +17,26 @@ from typing import Dict
 
 @dataclass(frozen=True)
 class TireCompoundModel:
-    """Encapsulates the coefficients for a tire compound degradation model."""
+    """Encapsulates the degradation behavior for a tire compound."""
 
     name: str
-    a: float
-    b: float
+    base_deg: float
 
     def degradation(self, lap_age: float) -> float:
-        """Compute the degradation time loss for the given lap age."""
+        """
+        Compute degradation penalty based on a nonlinear growth curve.
+
+        deg = base_deg * (1 + 0.015 * lap_age ** 1.1)
+        """
         if lap_age < 0:
             raise ValueError("lap_age must be non-negative")
-        return self.a * lap_age ** 1.2 + self.b * lap_age
+        return self.base_deg * (1.0 + 0.015 * (lap_age ** 1.1))
 
 
 COMPOUND_MODELS: Dict[str, TireCompoundModel] = {
-    "soft": TireCompoundModel("soft", a=0.020, b=0.035),
-    "medium": TireCompoundModel("medium", a=0.015, b=0.025),
-    "hard": TireCompoundModel("hard", a=0.010, b=0.020),
+    "soft": TireCompoundModel("soft", base_deg=0.23),
+    "medium": TireCompoundModel("medium", base_deg=0.17),
+    "hard": TireCompoundModel("hard", base_deg=0.13),
 }
 
 
